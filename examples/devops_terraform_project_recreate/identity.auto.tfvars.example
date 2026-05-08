@@ -1,0 +1,9 @@
+tenancy_ocid     = "ocid1.tenancy.oc1..replace_me"
+user_ocid        = "ocid1.user.oc1..replace_me"
+fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path = "~/.oci/your-key.pem"
+region           = "eu-frankfurt-1"
+
+compartment_ids = {
+  target = "ocid1.compartment.oc1..replace_me"
+}

@@ -1,0 +1,131 @@
+projects = {
+  main = {
+    compartment_name      = "target"
+    name                  = "devops-terraform-project"
+    description           = "OCI DevOps project for Terraform plan/apply pipeline"
+    notification_topic_id = "ocid1.onstopic.oc1.eu-frankfurt-1.replace_me"
+  }
+}
+
+connections = {
+  github_pat = {
+    project_name    = "main"
+    connection_type = "GITHUB_ACCESS_TOKEN"
+    access_token    = "ocid1.vaultsecret.oc1.eu-frankfurt-1.replace_me"
+    description     = "GitHub connection using PAT from OCI Vault Secret"
+    display_name    = "github-access-token-connection"
+  }
+}
+
+repositories = {
+  mirrored = {
+    project_name    = "main"
+    name            = "github-mirrored-repo"
+    repository_type = "MIRRORED"
+    default_branch  = "refs/heads/main"
+    description     = "Mirrored repository from GitHub for automated trigger events"
+    mirror_repository_config = {
+      connection_name = "github_pat"
+      repository_url  = "https://github.com/GabrielFeodorov/vcn-test-devops.git"
+      trigger_schedule = {
+	schedule_type   = "DEFAULT"
+	custom_schedule = ""
+      }
+    }
+  }
+}
+
+build_pipelines = {
+  terraform = {
+    project_name = "main"
+    description  = "Build pipeline that runs terraform plan and terraform apply"
+    display_name = "terraform-plan-apply-pipeline"
+  }
+}
+
+build_pipeline_stages = {
+  terraform_plan = {
+    build_pipeline_name       = "terraform"
+    build_pipeline_stage_type = "BUILD"
+    predecessors = [
+      {
+	type = "pipeline"
+	name = "terraform"
+      }
+    ]
+    build_runner_shape_config = {
+      build_runner_type = "DEFAULT"
+    }
+    build_source_collection = {
+      items = [
+	{
+	  branch          = "main"
+	  connection_name = "github_pat"
+	  connection_type = "GITHUB"
+	  name            = "github_source"
+	  repository_url  = "https://github.com/GabrielFeodorov/vcn-test-devops.git"
+	}
+      ]
+    }
+    build_spec_file                    = "build_spec_plan.yaml"
+    description                        = "Runs terraform plan"
+    display_name                       = "terraform-plan"
+    image                              = "OL8_X86_64_STANDARD_10"
+    primary_build_source               = "github_source"
+    stage_execution_timeout_in_seconds = 36000
+  }
+
+  terraform_apply = {
+    build_pipeline_name       = "terraform"
+    build_pipeline_stage_type = "BUILD"
+    predecessors = [
+      {
+	type = "stage"
+	name = "terraform_plan"
+      }
+    ]
+    build_runner_shape_config = {
+      build_runner_type = "DEFAULT"
+    }
+    build_source_collection = {
+      items = [
+	{
+	  branch          = "main"
+	  connection_name = "github_pat"
+	  connection_type = "GITHUB"
+	  name            = "github_source"
+	  repository_url  = "https://github.com/GabrielFeodorov/vcn-test-devops.git"
+	}
+      ]
+    }
+    build_spec_file                    = "build_spec_apply.yaml"
+    description                        = "Runs terraform apply if plan succeeded"
+    display_name                       = "terraform-apply"
+    image                              = "OL8_X86_64_STANDARD_10"
+    primary_build_source               = "github_source"
+    stage_execution_timeout_in_seconds = 36000
+  }
+}
+
+triggers = {
+  push_main = {
+    project_name   = "main"
+    trigger_source = "DEVOPS_CODE_REPOSITORY"
+    repository_name = "mirrored"
+    description    = "Triggers pipeline on mirrored repository push events"
+    display_name   = "github-push-trigger"
+    actions = [
+      {
+	build_pipeline_name = "terraform"
+	type                = "TRIGGER_BUILD_PIPELINE"
+	filter = {
+	  trigger_source = "DEVOPS_CODE_REPOSITORY"
+	  events         = ["PUSH"]
+	  include = {
+	    head_ref = "main"
+	  }
+	}
+      }
+    ]
+  }
+}
